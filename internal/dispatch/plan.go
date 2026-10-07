@@ -7,6 +7,7 @@ type PlanStatus string
 const (
 	PlanCalculating PlanStatus = "calculating"
 	PlanPublished   PlanStatus = "published"
+	PlanPartial     PlanStatus = "partial"
 	PlanStale       PlanStatus = "stale"
 	PlanFailed      PlanStatus = "failed"
 )

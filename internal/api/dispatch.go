@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+
+	"heatpulse/internal/station"
 )
 
 func (a *App) listPlans(w http.ResponseWriter, _ *http.Request) {
@@ -48,26 +50,37 @@ func (a *App) applyHold(w http.ResponseWriter, r *http.Request) {
 	var input struct {
 		StationIDs []string `json:"station_ids"`
 		Actor      string   `json:"actor"`
+		Reason     string   `json:"reason"`
 	}
 	if err := decodeJSON(r, &input); err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	revision, err := a.Targets.ManualHold(input.StationIDs, input.Actor)
+	batch, err := a.Targets.ManualHold(station.HoldRequest{
+		StationIDs: input.StationIDs, Actor: input.Actor, Reason: input.Reason,
+	})
 	if err != nil {
 		writeError(w, http.StatusConflict, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"revision": revision, "stations": input.StationIDs})
+	writeJSON(w, http.StatusOK, batch)
 }
 
 func (a *App) releaseHold(w http.ResponseWriter, r *http.Request) {
-	revision, err := a.Targets.ReleaseHold(chi.URLParam(r, "stationID"))
+	var input struct {
+		Actor  string `json:"actor"`
+		Reason string `json:"reason"`
+	}
+	if err := decodeJSON(r, &input); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	result, err := a.Targets.ReleaseHold(chi.URLParam(r, "stationID"), input.Actor, input.Reason)
 	if err != nil {
 		writeError(w, http.StatusConflict, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"revision": revision})
+	writeJSON(w, http.StatusOK, result)
 }
 
 func (a *App) bufferCommand(w http.ResponseWriter, r *http.Request) {

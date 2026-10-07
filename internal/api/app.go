@@ -107,7 +107,7 @@ func NewApp(dataDirectory string) (*App, error) {
 	relief := valve.NewReliefService(2 * time.Millisecond)
 	boundaries := valve.NewBoundaryService()
 	isolationService := isolation.NewService(topology, networkState, relief, boundaries, recorder)
-	targets := station.NewTargetService(stations)
+	targets := station.NewTargetService(stations, recorder)
 	planner := dispatch.NewPlanner(targets)
 	dispatchBuffer := dispatch.NewBuffer()
 	stationCommands := station.NewCommandService(stations)

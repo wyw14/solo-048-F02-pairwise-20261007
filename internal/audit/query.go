@@ -35,6 +35,9 @@ func (q *Query) Recent(filter Filter) ([]Entry, error) {
 		if outcome, ok := event.Fields["outcome"].(string); ok {
 			entry.Outcome = Outcome(outcome)
 		}
+		if details, ok := event.Fields["details"].(map[string]any); ok {
+			entry.Details = details
+		}
 		if filter.Match(entry) {
 			entries = append(entries, entry)
 		}

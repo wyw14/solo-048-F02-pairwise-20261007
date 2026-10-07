@@ -20,11 +20,18 @@ type MaintenanceService struct {
 	registry  *Registry
 	snapshots *store.StationSnapshotStore
 	mu        sync.Mutex
-	sessions  map[string]MaintenanceSession
+	sessions  map[string]maintenanceState
+}
+
+// maintenanceState remembers the hold metadata to restore on exit, including
+// the hold info captured before maintenance put the station into its own hold.
+type maintenanceState struct {
+	session  MaintenanceSession
+	holdInfo *HoldInfo
 }
 
 func NewMaintenanceService(registry *Registry, snapshots *store.StationSnapshotStore) *MaintenanceService {
-	return &MaintenanceService{registry: registry, snapshots: snapshots, sessions: make(map[string]MaintenanceSession)}
+	return &MaintenanceService{registry: registry, snapshots: snapshots, sessions: make(map[string]maintenanceState)}
 }
 
 func (s *MaintenanceService) Enter(stationID string) (MaintenanceSession, error) {
@@ -41,9 +48,16 @@ func (s *MaintenanceService) Enter(stationID string) (MaintenanceSession, error)
 		StationID: stationID, EnteredAt: time.Now().UTC(), PreviousTarget: item.TargetCelsius,
 		PreviousHold: item.Hold, PreviousOnline: item.Online,
 	}
+	var previousHoldInfo *HoldInfo
+	if item.HoldInfo != nil {
+		info := *item.HoldInfo
+		previousHoldInfo = &info
+	}
+	maintenanceInfo := &HoldInfo{Actor: "maintenance", Reason: "maintenance session", HeldAt: session.EnteredAt}
 	updated, err := s.registry.Update(stationID, func(current *Station) error {
 		current.Maintenance = true
 		current.Hold = true
+		current.HoldInfo = maintenanceInfo
 		return nil
 	})
 	if err != nil {
@@ -55,22 +69,23 @@ func (s *MaintenanceService) Enter(stationID string) (MaintenanceSession, error)
 	}); err != nil {
 		return MaintenanceSession{}, err
 	}
-	s.sessions[stationID] = session
+	s.sessions[stationID] = maintenanceState{session: session, holdInfo: previousHoldInfo}
 	return session, nil
 }
 
 func (s *MaintenanceService) Exit(stationID string) (Station, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	session, exists := s.sessions[stationID]
+	state, exists := s.sessions[stationID]
 	if !exists {
 		return Station{}, fmt.Errorf("station %s has no maintenance session", stationID)
 	}
 	updated, err := s.registry.Update(stationID, func(current *Station) error {
 		current.Maintenance = false
-		current.Hold = session.PreviousHold
-		current.TargetCelsius = session.PreviousTarget
-		current.Online = session.PreviousOnline
+		current.Hold = state.session.PreviousHold
+		current.HoldInfo = state.holdInfo
+		current.TargetCelsius = state.session.PreviousTarget
+		current.Online = state.session.PreviousOnline
 		return nil
 	})
 	if err != nil {

@@ -11,6 +11,17 @@ const (
 	ExchangerDraining ExchangerPhase = "draining"
 )
 
+// HoldInfo carries the audit metadata for a manually held target. Version is
+// incremented every time a hold is (re)applied to the station, so repeated
+// holds with a new operator or reason are distinguishable in the audit trail.
+type HoldInfo struct {
+	Actor    string    `json:"actor"`
+	Reason   string    `json:"reason"`
+	Version  uint64    `json:"version"`
+	Revision uint64    `json:"revision"`
+	HeldAt   time.Time `json:"held_at"`
+}
+
 type Station struct {
 	ID              string                    `json:"id"`
 	Name            string                    `json:"name"`
@@ -19,6 +30,7 @@ type Station struct {
 	Maintenance     bool                      `json:"maintenance"`
 	TargetCelsius   float64                   `json:"target_celsius"`
 	Hold            bool                      `json:"hold"`
+	HoldInfo        *HoldInfo                 `json:"hold_info,omitempty"`
 	TargetRevision  uint64                    `json:"target_revision"`
 	ControllerEpoch uint64                    `json:"controller_epoch"`
 	Exchangers      map[string]ExchangerPhase `json:"exchangers"`
@@ -31,6 +43,10 @@ func (s Station) Clone() Station {
 	for id, phase := range s.Exchangers {
 		copy.Exchangers[id] = phase
 	}
+	if s.HoldInfo != nil {
+		info := *s.HoldInfo
+		copy.HoldInfo = &info
+	}
 	return copy
 }
 
@@ -39,6 +55,7 @@ type Target struct {
 	Celsius   float64   `json:"celsius"`
 	Revision  uint64    `json:"revision"`
 	Hold      bool      `json:"hold"`
+	HoldInfo  *HoldInfo `json:"hold_info,omitempty"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
