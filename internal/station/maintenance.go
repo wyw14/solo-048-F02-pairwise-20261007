@@ -12,7 +12,7 @@ type MaintenanceSession struct {
 	StationID      string    `json:"station_id"`
 	EnteredAt      time.Time `json:"entered_at"`
 	PreviousTarget float64   `json:"previous_target"`
-	PreviousHold   bool      `json:"previous_hold"`
+	PreviousHold   HoldState `json:"previous_hold"`
 	PreviousOnline bool      `json:"previous_online"`
 }
 
@@ -43,7 +43,7 @@ func (s *MaintenanceService) Enter(stationID string) (MaintenanceSession, error)
 	}
 	updated, err := s.registry.Update(stationID, func(current *Station) error {
 		current.Maintenance = true
-		current.Hold = true
+		current.Hold = HoldState{Held: true, Actor: "maintenance", Reason: "maintenance session", At: time.Now().UTC()}
 		return nil
 	})
 	if err != nil {

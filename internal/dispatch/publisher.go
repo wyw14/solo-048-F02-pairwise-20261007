@@ -2,6 +2,7 @@ package dispatch
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"heatpulse/internal/audit"
@@ -26,7 +27,8 @@ func (p *Publisher) Publish(planID, actor string) (Plan, error) {
 	if plan.Status != PlanCalculating {
 		return plan, fmt.Errorf("plan %s is %s", plan.ID, plan.Status)
 	}
-	if err := p.targets.CompareAndPublish(plan.SourceRevision, plan.Targets); err != nil {
+	result, err := p.targets.CompareAndPublish(plan.SourceRevision, plan.Targets)
+	if err != nil {
 		plan.Status = PlanStale
 		plan.Message = err.Error()
 		p.planner.save(plan)
@@ -35,8 +37,16 @@ func (p *Publisher) Publish(planID, actor string) (Plan, error) {
 	}
 	plan.Status = PlanPublished
 	plan.PublishedAt = time.Now().UTC()
+	if len(result.Held) > 0 {
+		plan.Message = fmt.Sprintf("held stations skipped: %s", strings.Join(result.Held, ", "))
+	}
 	p.planner.save(plan)
-	if err := p.audit.Accepted("dispatch.publish", plan.ID, actor, "dispatch targets published", map[string]any{"source_revision": plan.SourceRevision}); err != nil {
+	if err := p.audit.Accepted("dispatch.publish", plan.ID, actor, "dispatch targets published", map[string]any{
+		"source_revision": plan.SourceRevision,
+		"revision":        result.Revision,
+		"applied":         result.Applied,
+		"held_skipped":    result.Held,
+	}); err != nil {
 		return plan, err
 	}
 	return plan, nil

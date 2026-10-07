@@ -11,6 +11,16 @@ const (
 	ExchangerDraining ExchangerPhase = "draining"
 )
 
+// HoldState records who placed a manual hold, why, and the target revision at
+// which it was placed, so hold and release decisions stay auditable.
+type HoldState struct {
+	Held    bool      `json:"held"`
+	Actor   string    `json:"actor,omitempty"`
+	Reason  string    `json:"reason,omitempty"`
+	Version uint64    `json:"version,omitempty"`
+	At      time.Time `json:"at,omitempty"`
+}
+
 type Station struct {
 	ID              string                    `json:"id"`
 	Name            string                    `json:"name"`
@@ -18,7 +28,7 @@ type Station struct {
 	Online          bool                      `json:"online"`
 	Maintenance     bool                      `json:"maintenance"`
 	TargetCelsius   float64                   `json:"target_celsius"`
-	Hold            bool                      `json:"hold"`
+	Hold            HoldState                 `json:"hold"`
 	TargetRevision  uint64                    `json:"target_revision"`
 	ControllerEpoch uint64                    `json:"controller_epoch"`
 	Exchangers      map[string]ExchangerPhase `json:"exchangers"`
@@ -38,7 +48,7 @@ type Target struct {
 	StationID string    `json:"station_id"`
 	Celsius   float64   `json:"celsius"`
 	Revision  uint64    `json:"revision"`
-	Hold      bool      `json:"hold"`
+	Hold      HoldState `json:"hold"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
